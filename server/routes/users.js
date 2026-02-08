@@ -9,12 +9,12 @@ const idsSchema = z.object({
   ids: z.array(z.string().min(1)).min(1, "Select at least one user"),
 });
 
-function buildInClause(ids) {
+function buildInClause(ids, startIndex = 1) {
   // important: placeholders keep SQL safe without custom escaping.
   // note: we rely on database parameter binding here.
   // nota bene: this helper keeps query assembly consistent.
   return {
-    clause: ids.map(() => "?").join(", "),
+    clause: ids.map((_, index) => `$${index + startIndex}`).join(", "),
     values: ids,
   };
 }
@@ -36,10 +36,10 @@ router.post("/block", async (req, res) => {
     return res.status(400).json({ message: parsed.error.issues[0].message });
   }
 
-  const { clause, values } = buildInClause(parsed.data.ids);
+  const { clause, values } = buildInClause(parsed.data.ids, 2);
   const db = getDb();
   await db.run(
-    `UPDATE users SET status = 'blocked', updated_at = ? WHERE id IN (${clause})`,
+    `UPDATE users SET status = 'blocked', updated_at = $1 WHERE id IN (${clause})`,
     new Date().toISOString(),
     ...values
   );
@@ -53,10 +53,10 @@ router.post("/unblock", async (req, res) => {
     return res.status(400).json({ message: parsed.error.issues[0].message });
   }
 
-  const { clause, values } = buildInClause(parsed.data.ids);
+  const { clause, values } = buildInClause(parsed.data.ids, 2);
   const db = getDb();
   await db.run(
-    `UPDATE users SET status = 'active', updated_at = ? WHERE id IN (${clause})`,
+    `UPDATE users SET status = 'active', updated_at = $1 WHERE id IN (${clause})`,
     new Date().toISOString(),
     ...values
   );
@@ -70,7 +70,7 @@ router.post("/delete", async (req, res) => {
     return res.status(400).json({ message: parsed.error.issues[0].message });
   }
 
-  const { clause, values } = buildInClause(parsed.data.ids);
+  const { clause, values } = buildInClause(parsed.data.ids, 1);
   const db = getDb();
   await db.run(`DELETE FROM users WHERE id IN (${clause})`, ...values);
 
@@ -82,7 +82,7 @@ router.post("/delete-unverified", async (req, res) => {
   const db = getDb();
 
   if (parsed.success && parsed.data.ids && parsed.data.ids.length > 0) {
-    const { clause, values } = buildInClause(parsed.data.ids);
+    const { clause, values } = buildInClause(parsed.data.ids, 1);
     await db.run(
       `DELETE FROM users WHERE status = 'unverified' AND id IN (${clause})`,
       ...values

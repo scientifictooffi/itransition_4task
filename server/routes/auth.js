@@ -52,7 +52,7 @@ router.post("/register", async (req, res) => {
     await db.run(
       `
         INSERT INTO users (id, name, email, password_hash, status, verify_token, created_at, updated_at)
-        VALUES (?, ?, ?, ?, 'unverified', ?, ?, ?)
+        VALUES ($1, $2, $3, $4, 'unverified', $5, $6, $7)
       `,
       userId,
       name.trim(),
@@ -87,7 +87,10 @@ router.post("/login", async (req, res) => {
 
   const { email, password } = parsed.data;
   const db = getDb();
-  const user = await db.get("SELECT * FROM users WHERE email = ?", normalizeEmail(email));
+  const user = await db.get(
+    "SELECT * FROM users WHERE email = $1",
+    normalizeEmail(email)
+  );
 
   if (!user) {
     return res.status(401).json({ message: "Invalid credentials" });
@@ -101,7 +104,12 @@ router.post("/login", async (req, res) => {
     return res.status(401).json({ message: "Invalid credentials" });
   }
 
-  await db.run("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?", new Date().toISOString(), new Date().toISOString(), user.id);
+  await db.run(
+    "UPDATE users SET last_login_at = $1, updated_at = $2 WHERE id = $3",
+    new Date().toISOString(),
+    new Date().toISOString(),
+    user.id
+  );
   req.session.userId = user.id;
 
   return res.status(200).json({ message: "Login successful" });
@@ -120,14 +128,14 @@ router.get("/verify", async (req, res) => {
   }
 
   const db = getDb();
-  const user = await db.get("SELECT * FROM users WHERE verify_token = ?", token);
+  const user = await db.get("SELECT * FROM users WHERE verify_token = $1", token);
   if (!user) {
     return res.status(404).json({ message: "Invalid token" });
   }
 
   if (user.status !== "blocked") {
     await db.run(
-      "UPDATE users SET status = 'active', verify_token = NULL, updated_at = ? WHERE id = ?",
+      "UPDATE users SET status = 'active', verify_token = NULL, updated_at = $1 WHERE id = $2",
       new Date().toISOString(),
       user.id
     );
@@ -139,7 +147,7 @@ router.get("/verify", async (req, res) => {
 router.get("/me", requireActiveUser, async (req, res) => {
   const db = getDb();
   const user = await db.get(
-    "SELECT id, name, email, status, last_login_at, created_at FROM users WHERE id = ?",
+    "SELECT id, name, email, status, last_login_at, created_at FROM users WHERE id = $1",
     req.user.id
   );
 
