@@ -12,6 +12,9 @@ const { requireActiveUser } = require("./middleware/auth");
 const app = express();
 const PORT = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const IS_PROD = process.env.NODE_ENV === "production";
+
+app.set("trust proxy", 1);
 
 app.use(
   cors({
@@ -28,8 +31,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false,
+      sameSite: IS_PROD ? "none" : "lax",
+      secure: IS_PROD,
       maxAge: 1000 * 60 * 60 * 24,
     },
   })
