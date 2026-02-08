@@ -63,7 +63,7 @@ router.post("/register", async (req, res) => {
       now
     );
   } catch (error) {
-    if (String(error).includes("SQLITE_CONSTRAINT")) {
+    if (error?.code === "23505" || String(error).includes("SQLITE_CONSTRAINT")) {
       return res.status(409).json({ message: "Email already exists" });
     }
     return res.status(500).json({ message: "Registration failed" });
